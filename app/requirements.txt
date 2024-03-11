@@ -1,0 +1,4 @@
+fastapi[all]==0.110.0
+pymongo==4.6.2
+mariadb==1.1.10
+python-dotenv==1.0.1
