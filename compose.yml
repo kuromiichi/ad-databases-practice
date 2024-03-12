@@ -1,6 +1,3 @@
-# create compose for python
-version: '3.8'
-
 services:
   mongo:
     image: mongo
