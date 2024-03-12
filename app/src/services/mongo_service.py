@@ -1,7 +1,7 @@
 from datetime import datetime
+from uuid import UUID, uuid4
 
 from pymongo import MongoClient, errors
-from uuid import UUID, uuid4
 
 from src.models.task import Task, TaskCreate
 from src.models.user import User, UserLogin
@@ -19,12 +19,12 @@ class MongoService:
         self.users = self.db["users"]
         self.tasks = self.db["tasks"]
 
-    def is_alive(self):
+    def is_alive(self) -> dict:
         try:
             self.client.is_primary
-            return True
+            return {"is_alive": True, "db": "mongo"}
         except errors.ServerSelectionTimeoutError:
-            return False
+            return {"is_alive": False, "db": "mongo"}
 
     def get_users(self, token: str) -> list[User] | str:
         if token != root_token:
@@ -50,9 +50,9 @@ class MongoService:
         return "User not found"
 
     def get_token(self, user: UserLogin) -> str | None:
-        user = self.users.find_one({"id": user.id, "password": user.password})
-        if user:
-            return str(user["uuid"])
+        match = self.users.find_one({"id": user.id, "password": user.password})
+        if match:
+            return str(match["uuid"])
         return None
 
     def create_user(self, user: UserLogin) -> User | str:
@@ -95,10 +95,11 @@ class MongoService:
     def get_task(self, task_id: UUID, token: str) -> Task | str:
         task = self.tasks.find_one({"id": task_id})
         if task:
-            user_token = self.users.find_one({"id": task["user_id"]})["uuid"]
-            if token != root_token and token != str(user_token):
-                return "Unauthorized"
-            return Task(**self.tasks.find_one({"id": task_id}))
+            user = self.users.find_one({"id": task["user_id"]})
+            if user or token == root_token:
+                if token == root_token or token == str(user["uuid"]):
+                    return Task(**self.tasks.find_one({"id": task_id}))
+            return "Unauthorized"
         return "Task not found"
 
     def create_task(self, task: TaskCreate, token: str) -> Task | str:
@@ -122,24 +123,26 @@ class MongoService:
     def delete_task(self, task_id: UUID, token: str) -> bool | str:
         task = self.tasks.find_one({"id": task_id})
         if task:
-            user_token = self.users.find_one({"id": task["user_id"]})["uuid"]
-            if token != root_token and token != str(user_token):
-                return "Unauthorized"
-            self.tasks.delete_one({"id": task_id})
-            return True
+            user = self.users.find_one({"id": task["user_id"]})
+            if user or token == root_token:
+                if token == root_token or token == str(user["uuid"]):
+                    self.tasks.delete_one({"id": task_id})
+                    return True
+            return "Unauthorized"
         return "Task not found"
 
     def update_task(self, task_id: UUID, token: str, task: TaskCreate) -> Task | str:
         existing_task = self.tasks.find_one({"id": task_id})
         if existing_task:
-            user_token = self.users.find_one({"id": existing_task["user_id"]})["uuid"]
-            if token != root_token and token != str(user_token):
-                return "Unauthorized"
-            self.tasks.update_one(
-                {"id": task_id},
-                {"$set": {**task.model_dump(), "updated_at": str(datetime.now())}},
-            )
-            return Task(**self.tasks.find_one({"id": task_id}))
+            user = self.users.find_one({"id": existing_task["user_id"]})
+            if user or token == root_token:
+                if token == root_token or token == str(user["uuid"]):
+                    self.tasks.update_one(
+                        {"id": task_id},
+                        {"$set": {**task.model_dump(), "updated_at": str(datetime.now())}},
+                    )
+                    return Task(**self.tasks.find_one({"id": task_id}))
+            return "Unauthorized"
         return "Task not found"
 
     def delete_data(self, token: str) -> bool:

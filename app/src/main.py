@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from src.models.task import Task, TaskCreate
 from src.models.user import User, UserLogin
+from src.services.mariadb_service import MariaDBService
 from src.services.mongo_service import MongoService
 
 app = FastAPI()
@@ -15,14 +16,14 @@ db_manager = os.getenv("DB_MANAGER")
 if db_manager == "mongo":
     db_service = MongoService(os.getenv("MONGO_USER"), os.getenv("MONGO_PASS"))
 elif db_manager == "mariadb":
-    pass
+    db_service = MariaDBService(os.getenv("MARIADB_USER"), os.getenv("MARIADB_PASS"), os.getenv("MARIADB_DATABASE"))
 else:
     raise ValueError(f"Invalid DB_MANAGER: {db_manager}")
 
 
 @app.get("/")
-async def root():
-    return {"is_alive": db_service.is_alive()}
+async def root() -> dict:
+    return db_service.is_alive()
 
 
 """
