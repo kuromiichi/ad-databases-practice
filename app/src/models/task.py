@@ -10,3 +10,9 @@ class Task(BaseModel):
     updated_at: str
     is_checked: bool
     is_important: bool
+
+
+class TaskCreate(BaseModel):
+    text: str
+    is_checked: bool = False
+    is_important: bool = False
